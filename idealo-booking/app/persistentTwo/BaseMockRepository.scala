@@ -2,7 +2,7 @@ package persistentTwo
 
 import model.BaseEntity
 
-trait BaseMapMockDAO[K, T <: BaseEntity[K]] {
+trait BaseMockRepository[K, T <: BaseEntity[K]] {
   private val data = scala.collection.mutable.Map[K, T]()
 
   def create(t: T): T = {
@@ -23,5 +23,6 @@ trait BaseMapMockDAO[K, T <: BaseEntity[K]] {
 
   def update(t: T) = data(t.getKey()) = t
 
+  //useful only for debug/test while in memory mode  
   def findAll = data.values.toList
 }

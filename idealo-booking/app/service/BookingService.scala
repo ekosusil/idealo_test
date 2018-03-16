@@ -8,16 +8,15 @@ import java.util.Date
 import javax.inject._
 import model._
 import response._
-import persistentTwo.BookingDAO2
-import persistentTwo.TravelDAO2
-import persistentTwo.TravelScheduleDAO2
-import persistentTwo.UserDAO2
-
+import persistentTwo.BookingRepository
+import persistentTwo.TravelRepository
+import persistentTwo.TravelScheduleRepository
+import persistentTwo.UserRepository
+import util.Constants._
 import java.util.UUID
 
 sealed trait BookingService {
-  //  case class Booking(bookingId:String,userId:String,travelCode:String,travelTimestamp:Date,bookingTimestamp:Date,deleted:Boolean) {
-  //  def bookTransport(request: BookingRequest): Boolean
+
   def bookTransport(request: BookingRequest): Either[String, BookedTrip]
 
   def bookingsForUser(userId: String): Either[String, BookingResponse]
@@ -31,12 +30,11 @@ object BookingService {
     service
   }
 
-  private class BookingServiceImpl extends BookingService {
+  private class BookingServiceImpl(implicit userDao:UserRepository,
+                                            bookingDao:BookingRepository,
+                                            travelDao:TravelRepository,
+                                            travelScheduleDao:TravelScheduleRepository) extends BookingService {
 
-    val userDao = new UserDAO2();
-    val bookingDao = new BookingDAO2();
-    val travelDao = new TravelDAO2();
-    val travelScheduleDao = new TravelScheduleDAO2();
 
     def mockData = {
       val user1 = User("1", "user1@gmail.com", false)
@@ -92,17 +90,18 @@ object BookingService {
 
     //TODO put the num of seat on booking instance. 
     override def bookTransport(request: BookingRequest): Either[String, BookedTrip] = {
-      if (request.noOfSeat <= 0) Left("Wrong number of seat")
+      if (request.noOfSeat <= 0) Left(INVALID_SEAT_ARGUMENT_ERROR)
       else {
+        println(request.travelTimestamp)
         val user = userDao.findOne(user => user.email == request.email)
         val travel = travelDao.findOne(travel => travel.travelCode == request.travelCode)
         val travelSchedule = travelScheduleDao.findOne(ts => ts.travelId.equals(request.travelCode) &&
           ts.travelTimestamp.equals(request.travelTimestamp) &&
           ts.seatAvailable >= request.noOfSeat)
 
-        if (travel.isEmpty) Left("Travel code is not valid")
-        else if (user.isEmpty) Left("User not registered")
-        else if (travelSchedule.isEmpty) Left("There are seat left for this travel")
+        if (travel.isEmpty) Left(TRAVEL_CODE_NOT_VALID_ERROR)
+        else if (user.isEmpty) Left(USER_NOT_REGISTERED_ERROR)
+        else if (travelSchedule.isEmpty) Left(NO_SEAT_LEFT_ERROR)
         else {
           val booking = Booking("", user.get, travel.get, request.travelTimestamp, new Date(System.currentTimeMillis()), 1);
           val newBooking = bookingDao.create(booking);
@@ -122,7 +121,7 @@ object BookingService {
         val bookingResponse = BookingResponse.toBookingResponse(user.get, bookingBean)
         Right(bookingResponse)
       } else {
-        Left("User not registered")
+        Left(USER_NOT_REGISTERED_ERROR)
       }
     }
   }
